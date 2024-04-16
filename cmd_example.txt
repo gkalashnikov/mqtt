@@ -1,0 +1,15 @@
+to start broker with tls encryption:
+
+-d "D:/mqtt-broker/1883" -c "C:/ProgramData/server.public.pem" -k "C:/ProgramData/server.private.pem" --qos0-offline-queue 0 --qos0-max-flow 5000 --qos1-max-flow 2500 --qos2-max-flow 1250 --ban-duration 5 --ban-accumulative 0 --listener mqtt://0.0.0.0:1883 mqtts://0.0.0.0:8883 --verbose 3
+
+
+to start broker with bridge:
+
+-d "D:/mqtt-broker/1884" --qos0-offline-queue 0 --qos0-max-flow 5000 --qos1-max-flow 2500 --qos2-max-flow 1250 --ban-duration 5 --ban-accumulative 0 --verbose 3 --listener mqtt://0.0.0.0:1884 connect --clean-start 1 --reconnect-period 5 --local-client-id local_bridge_to_localhost_1883 --local-user username --local-password password --local-subscribe "#" --remote-connection mqtt://localhost:1883 --remote-client-id client_from_localhost_1884 --remote-user remote_username --remote-password remote_password --remote-subscribe "#"
+
+
+to start broker with pass flie:
+
+-p "D:/mqtt-broker/pass.txt" -d "D:/mqtt-broker/1885" --verbose 3 --listener mqtt://0.0.0.0:1885
+
+

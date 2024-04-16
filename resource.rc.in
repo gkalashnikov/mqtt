@@ -1,0 +1,52 @@
+#define APSTUDIO_READONLY_SYMBOLS
+#include <windows.h>
+#undef APSTUDIO_READONLY_SYMBOLS
+
+#include "version.h"
+
+#ifndef RT_MANIFEST
+    #define RT_MANIFEST 24
+    #ifndef APP_MANIFEST
+        #define APP_MANIFEST 1
+    #endif
+    APP_MANIFEST RT_MANIFEST "@PROJECTS_ROOT_DIR@/build-options/target.exe.manifest"
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION PROJECT_VERSION_RC
+ PRODUCTVERSION PROJECT_VERSION_RC
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041904b0"
+        BEGIN
+            VALUE "CompanyName",  ""
+            VALUE "FileDescription", "@PROJECT_DESCRIPTION@"
+            VALUE "FileVersion", "@PROJECT_VERSION@"
+            VALUE "InternalName", "@PROJECT_NAME@"
+            VALUE "LegalCopyright", ""
+            VALUE "LegalTrademarks", ""
+            VALUE "OriginalFilename", "@OUTPUT_NAME@"
+            VALUE "ProductName", ""
+            VALUE "ProductVersion", "v. @PROJECT_VERSION@, rev. @PROJECT_GIT_REVISION@ @PROJECT_BUILD_TIMESTAMP@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x419, 1200
+    END
+END

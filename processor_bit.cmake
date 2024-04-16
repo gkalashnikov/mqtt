@@ -1,0 +1,5 @@
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(PROCESSOR_BIT "64bit")
+else()
+    set(PROCESSOR_BIT "32bit")
+endif()
