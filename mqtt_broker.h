@@ -15,7 +15,6 @@
 namespace Mqtt
 {
     class PasswordFile;
-    class IAuthenticator;
     class PublishPacket;
 
     typedef QHash<QString, SessionPtr>  SessionsStore;

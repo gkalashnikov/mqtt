@@ -12,7 +12,7 @@ QDebug operator << (QDebug d, Mqtt::PacketType type)
        case Mqtt::PacketType::PUBLISH     : d << QStringLiteral("PUBLISH");     break;
        case Mqtt::PacketType::PUBACK      : d << QStringLiteral("PUBACK");      break;
        case Mqtt::PacketType::PUBREC      : d << QStringLiteral("PUBREC");      break;
-       case Mqtt::PacketType::PUBREL      : d << QStringLiteral("PUBREL");       break;
+       case Mqtt::PacketType::PUBREL      : d << QStringLiteral("PUBREL");      break;
        case Mqtt::PacketType::PUBCOMP     : d << QStringLiteral("PUBCOMP");     break;
        case Mqtt::PacketType::SUBSCRIBE   : d << QStringLiteral("SUBSCRIBE");   break;
        case Mqtt::PacketType::SUBACK      : d << QStringLiteral("SUBACK");      break;

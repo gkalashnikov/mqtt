@@ -23,7 +23,6 @@ namespace Mqtt
         ~AuthPacket() override;
 
     public:
-    public:
         ReasonCodeV5 reasonCode() const;
         void setReasonCode(ReasonCodeV5 code);
         Properties & properties();
