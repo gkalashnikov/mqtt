@@ -15,22 +15,22 @@ struct PublishFlags
 using namespace Mqtt;
 
 PublishAckPacket::PublishAckPacket()
-    :PublishAnswerPacket({ Mqtt::Flags::PUBACK, Mqtt::PacketType::PUBACK }) { }
+    :PublishAnswerPacket(FixedHeader { Mqtt::Flags::PUBACK, Mqtt::PacketType::PUBACK }) { }
 
 PublishAckPacket::~PublishAckPacket() { }
 
 PublishRecPacket::PublishRecPacket()
-    :PublishAnswerPacket({ Mqtt::Flags::PUBREC, Mqtt::PacketType::PUBREC }) { }
+    :PublishAnswerPacket(FixedHeader { Mqtt::Flags::PUBREC, Mqtt::PacketType::PUBREC }) { }
 
 PublishRecPacket::~PublishRecPacket() { }
 
 PublishRelPacket::PublishRelPacket()
-    :PublishAnswerPacket({ Mqtt::Flags::PUBREL, Mqtt::PacketType::PUBREL }) { }
+    :PublishAnswerPacket(FixedHeader { Mqtt::Flags::PUBREL, Mqtt::PacketType::PUBREL }) { }
 
 PublishRelPacket::~PublishRelPacket() { }
 
 PublishCompPacket::PublishCompPacket()
-    :PublishAnswerPacket({ Mqtt::Flags::PUBCOMP, Mqtt::PacketType::PUBCOMP }) { }
+    :PublishAnswerPacket(FixedHeader { Mqtt::Flags::PUBCOMP, Mqtt::PacketType::PUBCOMP }) { }
 
 PublishCompPacket::~PublishCompPacket() { }
 
@@ -43,7 +43,7 @@ PublishPacket::Header::Header()
 
 
 PublishPacket::PublishPacket()
-    :ControlPacket({ Mqtt::Flags::PUBLISH, Mqtt::PacketType::PUBLISH })
+    :ControlPacket(FixedHeader { Mqtt::Flags::PUBLISH, Mqtt::PacketType::PUBLISH })
 {
 
 }

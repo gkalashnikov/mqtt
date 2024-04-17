@@ -4,7 +4,7 @@
 using namespace Mqtt;
 
 PingRequestPacket::PingRequestPacket()
-    :ControlPacket({ Mqtt::Flags::PINGREQ , Mqtt::PacketType::PINGREQ })
+    :ControlPacket(FixedHeader { Mqtt::Flags::PINGREQ , Mqtt::PacketType::PINGREQ })
 {
 
 }
@@ -49,7 +49,7 @@ bool PingRequestPacket::unserialize(const QByteArray & data, Version protocolVer
 
 
 PingResponsePacket::PingResponsePacket()
-    :ControlPacket({ Mqtt::Flags::PINGRESP , Mqtt::PacketType::PINGRESP })
+    :ControlPacket(FixedHeader { Mqtt::Flags::PINGRESP , Mqtt::PacketType::PINGRESP })
 {
 
 }

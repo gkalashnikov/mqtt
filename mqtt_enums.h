@@ -9,4 +9,4 @@
 #include "mqtt_enum_retcode_v5.h"
 #include "mqtt_enum_version.h"
 
-#endif MQTT_ENUMS_H
+#endif // MQTT_ENUMS_H
