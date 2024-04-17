@@ -21,7 +21,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR})
 include(build_options)
 set_build_options("${CMAKE_CURRENT_LIST_DIR}")
 
-add_compile_definitions(HIGH_PERFORMANCE NOSTACKTRACE _CRT_SECURE_NO_WARNINGS)
+add_compile_definitions(HIGH_PERFORMANCE NOSTACKTRACE)
 
 FILE(GLOB SOURCES *.cpp)
 FILE(GLOB HEADERS *.h)

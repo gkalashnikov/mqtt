@@ -5,7 +5,8 @@
 using namespace Mqtt;
 
 ChunkDataController::ChunkDataController()
-    :m_packet_len(0)
+    :m_max_data_size(Constants::MaxIncomingDataLength)
+    ,m_packet_len(0)
     ,m_timeout(Constants::DefaultKeepAliveInterval * 2 * 1000)
 {
     m_timer.start();
@@ -27,7 +28,7 @@ void ChunkDataController::append(const QByteArray & chunk)
     if (chunk.isEmpty())
         return;
 
-    if ((chunk.size() + m_data.size()) > Constants::MaxIncomingDataLength) {
+    if ((chunk.size() + m_data.size()) > m_max_data_size) {
         clear();
         return;
     }
