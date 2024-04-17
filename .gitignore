@@ -1,0 +1,4 @@
+version.h
+*.txt.user
+*.rc
+build-*/
