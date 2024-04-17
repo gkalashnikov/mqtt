@@ -5,7 +5,7 @@
 using namespace Mqtt;
 
 DisconnectPacket::DisconnectPacket()
-    :ControlPacket({ Mqtt::Flags::DISCONNECT, Mqtt::PacketType::DISCONNECT })
+    :ControlPacket(FixedHeader { Mqtt::Flags::DISCONNECT, Mqtt::PacketType::DISCONNECT })
 {
 
 }

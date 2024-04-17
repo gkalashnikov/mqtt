@@ -34,7 +34,7 @@ ConnectPacket::Header::Header()
 }
 
 ConnectPacket::ConnectPacket()
-    :ControlPacket({ Mqtt::Flags::CONNECT , Mqtt::PacketType::CONNECT })
+    :ControlPacket(FixedHeader { Mqtt::Flags::CONNECT , Mqtt::PacketType::CONNECT })
 {
 
 }
@@ -441,7 +441,7 @@ ConnackPacket::Header::Header()
 }
 
 ConnackPacket::ConnackPacket()
-    :ControlPacket({ Mqtt::Flags::CONNACK, Mqtt::PacketType::CONNACK })
+    :ControlPacket(FixedHeader { Mqtt::Flags::CONNACK, Mqtt::PacketType::CONNACK })
 {
 
 }

@@ -6,7 +6,7 @@
 using namespace Mqtt;
 
 SubscribePacket::SubscribePacket()
-    :ControlPacket({ Mqtt::Flags::SUBSCRIBE, Mqtt::PacketType::SUBSCRIBE })
+    :ControlPacket(FixedHeader { Mqtt::Flags::SUBSCRIBE, Mqtt::PacketType::SUBSCRIBE })
 {
 
 }
@@ -150,7 +150,7 @@ bool SubscribePacket::isPropertiesValid(const Properties & props)
 
 
 UnsubscribePacket::UnsubscribePacket()
-    :ControlPacket({ Mqtt::Flags::UNSUBSCRIBE, Mqtt::PacketType::UNSUBSCRIBE })
+    :ControlPacket(FixedHeader { Mqtt::Flags::UNSUBSCRIBE, Mqtt::PacketType::UNSUBSCRIBE })
 {
 
 }
@@ -263,7 +263,7 @@ SubscribeAckPacket::SubscribeAckPacket(FixedHeader fixedHeader)
 }
 
 SubscribeAckPacket::SubscribeAckPacket()
-    :ControlPacket({ Mqtt::Flags::SUBACK, Mqtt::PacketType::SUBACK })
+    :ControlPacket(FixedHeader { Mqtt::Flags::SUBACK, Mqtt::PacketType::SUBACK })
 {
 
 }
@@ -432,7 +432,7 @@ bool SubscribeAckPacket::isPropertiesValid(const Properties & props)
 
 
 UnsubscribeAckPacket::UnsubscribeAckPacket()
-    :SubscribeAckPacket({ Mqtt::Flags::UNSUBACK, Mqtt::PacketType::UNSUBACK })
+    :SubscribeAckPacket(FixedHeader { Mqtt::Flags::UNSUBACK, Mqtt::PacketType::UNSUBACK })
 {
 
 }

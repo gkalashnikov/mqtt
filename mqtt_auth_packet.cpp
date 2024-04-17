@@ -11,7 +11,7 @@ AuthPacket::Header::Header()
 }
 
 AuthPacket::AuthPacket()
-    :ControlPacket({ Flags::AUTH, PacketType::AUTH })
+    :ControlPacket(FixedHeader { Flags::AUTH, PacketType::AUTH })
 {
 
 }
