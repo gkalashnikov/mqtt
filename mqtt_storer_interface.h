@@ -16,6 +16,7 @@ namespace Mqtt
             virtual ~IStorer();
 
         public:
+            virtual bool canStore(const QString & key) = 0;
             virtual QByteArray load(const QString & key) = 0;
             virtual void store(const QString & key, const QByteArray & data) = 0;
             virtual void remove(const QString & key) = 0;

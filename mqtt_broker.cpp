@@ -923,7 +923,7 @@ void Broker::handleConnectPacket(SessionPtr & session, const QByteArray & data)
 
     log_trace << session->connection() << "packet" << packet->type() << "unserialized succesfully" << end_log;
 
-    if (conn_packet->clientId().isEmpty())
+    if (conn_packet->clientId().isEmpty() || !sessionsStorer->canStore(conn_packet->clientId()))
     {
         if (!conn_packet->cleanSession()) {
             sendConnackError(session, Version::Ver_5_0 == proto_version ? quint8(ReasonCodeV5::ClientIdentifierNotValid) : quint8(ReturnCodeV3::IdentifierRejected));

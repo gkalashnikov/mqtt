@@ -93,6 +93,11 @@ FilesStorer::PathBuilder::PathBuilder(const QString & workDir)
     changePath(workDir);
 }
 
+bool FilesStorer::PathBuilder::canStore(const QString & key)
+{
+    return (!key.contains(QChar(SpecialSymbols::Plus)) && !key.contains(QChar(SpecialSymbols::Hash)));
+}
+
 QString FilesStorer::PathBuilder::makePath(const QString & key)
 {
     QString file_name = key;
@@ -141,6 +146,11 @@ FilesStorer::FilesStorer(const QString & workDir)
 FilesStorer::~FilesStorer()
 {
 
+}
+
+bool FilesStorer::canStore(const QString & key)
+{
+    return builder.canStore(key);
 }
 
 QByteArray FilesStorer::load(const QString & key)

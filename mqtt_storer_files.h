@@ -18,6 +18,7 @@ namespace Mqtt
             public:
                 explicit PathBuilder(const QString & workDir);
 
+                bool canStore(const QString & key);
                 QString makePath(const QString & key);
                 QString makeKey(const QString & path);
                 void changePath(const QString & path);
@@ -35,6 +36,7 @@ namespace Mqtt
             ~FilesStorer() override;
 
         public:
+            bool canStore(const QString & key) override;
             QByteArray load(const QString & key) override;
             void store(const QString & key, const QByteArray & data) override;
             void remove(const QString & key) override;

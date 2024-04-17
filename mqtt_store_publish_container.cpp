@@ -15,6 +15,7 @@ public:
     ~EmptyStorer() override;
 
 public:
+    bool canStore(const QString & key) override;
     QByteArray load(const QString & key) override;
     void store(const QString & key, const QByteArray & data) override;
     void remove(const QString & key) override;
@@ -26,7 +27,8 @@ public:
 
 EmptyStorer::EmptyStorer()  { }
 EmptyStorer::~EmptyStorer() { }
-QByteArray EmptyStorer::load(const QString & key) { return QByteArray(); }
+bool EmptyStorer::canStore(const QString &) { return false; }
+QByteArray EmptyStorer::load(const QString &) { return QByteArray(); }
 void EmptyStorer::store(const QString &, const QByteArray &) { }
 void EmptyStorer::remove(const QString &) { }
 void EmptyStorer::beginReadKeys() { }

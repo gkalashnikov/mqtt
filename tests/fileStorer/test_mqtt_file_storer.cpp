@@ -13,6 +13,7 @@ namespace Test
             void initTestCase();
             void testRelativeStore();
             void testAbsoluteStore();
+            void testInvalidKeys();
             void cleanupTestCase();
 
         private:
@@ -111,6 +112,15 @@ void FilesStorer::testAbsoluteStore()
         folder_absolute->remove(k);
         QVERIFY2(folder_absolute->load(k).isEmpty(), "data must be empty after remove");
     }
+}
+
+void FilesStorer::testInvalidKeys()
+{
+    QStringList invalid_keys = QStringList() << QStringLiteral("fd/+") << QStringLiteral("+") << QStringLiteral("/#") << QStringLiteral("#");
+
+    for (auto k: invalid_keys)
+        QVERIFY2(!folder_absolute->canStore(k), QString("\"%1\" must be invalid for store").arg(k).toUtf8().constData());
+
 }
 
 void FilesStorer::cleanupTestCase()
