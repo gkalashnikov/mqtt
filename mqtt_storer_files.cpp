@@ -48,22 +48,9 @@ bool existsFile(const QString & pathToFile)
 
 QByteArray loadFile(const QString & pathToFile)
 {
-    QByteArray data;
-
-//    std::ifstream ifile;
-//    ifile.open(reinterpret_cast<const ushort*>(pathToFile.constData()), std::ios::in|std::ios::binary|std::ios::ate);
-//    if (ifile.is_open()) {
-//        std::streampos size = ifile.tellg();
-//        try {
-//            data.resize(size);
-//            ifile.seekg(0, std::ios::beg);
-//            ifile.read(data.data(), size);
-//        } catch (...) { }
-//        ifile.close();
-//    }
-//    return data;
-
     static thread_local QFile file;
+
+    QByteArray data;
     if (existsFile(pathToFile)) {
         file.setFileName(pathToFile); {
             FileOpen f(&file, QIODevice::ReadOnly);
@@ -78,16 +65,8 @@ QByteArray loadFile(const QString & pathToFile)
 
 bool saveFile(const QString & pathToFile, const QByteArray & data)
 {
-//    std::ofstream ofile;
-//    ofile.open(reinterpret_cast<const ushort*>(pathToFile.constData()), std::ios::out|std::ios::binary|std::ios::app);
-//    if (ofile.is_open()) {
-//        ofile.write(data.constData(), data.count());
-//        ofile.close();
-//        return true;
-//    }
-//    return false;
-
     static thread_local QFile file;
+
     bool result = false;
     file.setFileName(pathToFile);
     {
@@ -98,26 +77,14 @@ bool saveFile(const QString & pathToFile, const QByteArray & data)
     return result;
 }
 
-bool removeFile(const QString & pathToFile, const QDir & workDir)
+bool removeFile(const QString & pathToFile)
 {
-    if (!existsFile(pathToFile))
-        return true;
+    static thread_local QFile file;
 
-    QDir dir(pathToFile);
-    bool cd_up = dir.cdUp();
-    bool removed = dir.remove(pathToFile);
-    if (cd_up) {
-        while (dir != workDir) {
-            if (!dir.isEmpty())
-                break;
-            QString dir_name = dir.dirName();
-            if (!dir.cdUp())
-                break;
-            if (!dir.rmdir(dir_name))
-                break;
-        }
-    }
-    return removed;
+    file.setFileName(pathToFile);
+    if (!file.exists())
+        return true;
+    return file.remove();
 }
 
 FilesStorer::PathBuilder::PathBuilder(const QString & workDir)
@@ -149,9 +116,9 @@ QString FilesStorer::PathBuilder::makeKey(const QString & path)
 
 void FilesStorer::PathBuilder::changePath(const QString & path)
 {
-    workDir = QDir(path);
-    if (!workDir.exists())
-        workDir.mkpath(path);
+    auto parts = QDir::toNativeSeparators(path).split(QDir::separator());
+    for (auto part: parts)
+        ensurePathExists(workDir, part);
 }
 
 void FilesStorer::PathBuilder::ensurePathExists(QDir & dir, const QString & path)
@@ -188,7 +155,7 @@ void FilesStorer::store(const QString & key, const QByteArray & data)
 
 void FilesStorer::remove(const QString & key)
 {
-    removeFile(builder.makePath(key), builder.workDir);
+    removeFile(builder.makePath(key));
 }
 
 void FilesStorer::beginReadKeys()

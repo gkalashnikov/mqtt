@@ -18,5 +18,7 @@ FilesStorerFactory::~FilesStorerFactory()
 IStorer * FilesStorerFactory::createStorer(const QString & key)
 {
     QString work_dir = rootWorkDir;
-    return new FilesStorer(work_dir.append('/').append(key));
+    if (!work_dir.endsWith('/'))
+        work_dir.append('/');
+    return new FilesStorer(work_dir.append(key));
 }
