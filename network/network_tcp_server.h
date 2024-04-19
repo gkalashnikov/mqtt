@@ -25,13 +25,11 @@ namespace Network
         ~TcpServer();
 
     signals:
-        void cantStartListening();
-        void ready();
+        void listeningStarted(QHostAddress address, quint16 port);
+        void cantStartListening(QString error);
 
     private slots:
         void initialize();
-        void listeningBeingOn();
-        void listeningError();
 
         void socketFirstRead();
         void socketRead();
@@ -62,6 +60,9 @@ namespace Network
 
         void writeData(quintptr connectionId, QByteArray data);
         void closeConnection(quintptr connectionId);
+
+        void listeningBeingOn();
+        void listeningError();
 
     private:
         SecureMode         m_secure;

@@ -35,10 +35,11 @@ void TcpServer::initialize()
 {
     connect(m_ws_server, &QWebSocketServer::newConnection, this, &TcpServer::websocketConnected);
 
-    if (listen(m_ip, m_port))
+    if (listen(m_ip, m_port)) {
         listeningBeingOn();
-    else
+    } else {
         listeningError();
+    }
 }
 
 void TcpServer::listeningBeingOn()
@@ -58,7 +59,8 @@ void TcpServer::listeningBeingOn()
                       : "")
 #                 endif
                   << end_log;
-    emit ready();
+
+    emit listeningStarted(serverAddress(), serverPort());
 }
 
 void TcpServer::listeningError()
@@ -72,7 +74,7 @@ void TcpServer::listeningError()
                   << "[" << secureMode() << "]"
                   << end_log;
     close();
-    emit cantStartListening();
+    emit cantStartListening(errorString());
 }
 
 void TcpServer::receiveData(QObject * socket, QHostAddress ip, quint16 port, ConnectionType type, const QByteArray & data)

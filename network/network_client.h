@@ -71,6 +71,7 @@ namespace Network
         quint16 port() const;
         quintptr id() const;
         bool isNull() const;
+        const Server * serverInstance() const;
 
         void close() const;
         void write(const QByteArray & data) const;
@@ -90,12 +91,13 @@ namespace Network
         Server       * server;
     };
 
-    inline ConnectionType ServerClient::type() const { return connectionType;      }
-    inline SecureMode ServerClient::mode() const     { return secureMode;          }
-    inline QHostAddress ServerClient::ip() const     { return clientIp;            }
-    inline quint16 ServerClient::port() const        { return clientPort;          }
-    inline quintptr ServerClient::id() const         { return connectionId;        }
-    inline bool ServerClient::isNull() const         { return (connectionId == 0); }
+    inline ConnectionType ServerClient::type() const           { return connectionType;      }
+    inline SecureMode ServerClient::mode() const               { return secureMode;          }
+    inline QHostAddress ServerClient::ip() const               { return clientIp;            }
+    inline quint16 ServerClient::port() const                  { return clientPort;          }
+    inline quintptr ServerClient::id() const                   { return connectionId;        }
+    inline bool ServerClient::isNull() const                   { return (connectionId == 0); }
+    inline const Server * ServerClient::serverInstance() const { return server;              }
 
     class ServerClientSocket : public ServerClient
     {

@@ -23,8 +23,8 @@ namespace Network
         ~Server() override;
 
     signals:
-        void ready();
-        void cantStartListening();
+        void listeningStarted(QHostAddress address, quint16 port);
+        void cantStartListening(QString error);
 
     private slots:
         void initialize();

@@ -45,7 +45,7 @@ void Server::initialize()
 #ifndef QT_NO_OPENSSL
     m_tcp_server->setSslConfiguration(m_ssl);
 #endif
-    connect(m_tcp_server, &TcpServer::ready, this, &Server::ready);
+    connect(m_tcp_server, &TcpServer::listeningStarted, this, &Server::listeningStarted);
     connect(m_tcp_server, &TcpServer::cantStartListening, this, &Server::cantStartListening);
 
     m_timer = new QTimer(this);
