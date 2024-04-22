@@ -361,8 +361,14 @@ bool Test::Network::event(QEvent * event)
 
 int Test::Network::wait()
 {
-    QTimer::singleShot(::std::chrono::seconds(5), Qt::CoarseTimer, this, &Test::Network::waitTimeout);
-    return waitLoop.exec();
+    QTimer * timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, &Test::Network::waitTimeout);
+    timer->start(std::chrono::seconds(5));
+    int retcode = waitLoop.exec();
+    if (retcode == 0)
+        timer->stop();
+    delete timer;
+    return retcode;
 }
 
 void Test::Network::handleIncomingConnection(::Network::ServerClient client)
@@ -383,15 +389,15 @@ void Test::Network::checkOpenConnectFinished()
     {
         case TestStep::TCP:
         {
-            QVERIFY2(socketServerClient.ip() == tcp_socket->localAddress()  , "server in client must be assigned to this server");
-            QVERIFY2(socketServerClient.port() == tcp_socket->localPort()   , "server in client must be assigned to this server");
+            QVERIFY2(socketServerClient.ip() == tcp_socket->localAddress()  , "client ip and tcp socket local address must be equals");
+            QVERIFY2(socketServerClient.port() == tcp_socket->localPort()   , "client port and tcp socket local port must be equals");
             QVERIFY2(tcp_socket->state() == QAbstractSocket::ConnectedState , "tcp socket state must be connected");
             break;
         }
         case TestStep::WS:
         {
-            QVERIFY2(socketServerClient.ip() == ws_socket->localAddress()  , "server in client must be assigned to this server");
-            QVERIFY2(socketServerClient.port() == ws_socket->localPort()   , "server in client must be assigned to this server");
+            QVERIFY2(socketServerClient.ip() == ws_socket->localAddress()  , "client ip and ws socket local address must be equals");
+            QVERIFY2(socketServerClient.port() == ws_socket->localPort()   , "client port and ws socket local port must be equals");
             QVERIFY2(ws_socket->state() == QAbstractSocket::ConnectedState , "ws socket state must be connected");
             break;
         }
