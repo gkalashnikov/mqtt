@@ -152,6 +152,9 @@ void Connection::setState(State state)
 
 void Connection::closeConnection(ReasonCodeV5 code, const QString & reason)
 {
+    if (m_state == State::NetworkDisconnected)
+        return;
+
     if (m_state == State::BrokerConnected)
     {
         DisconnectPacket discon;
@@ -160,6 +163,7 @@ void Connection::closeConnection(ReasonCodeV5 code, const QString & reason)
             discon.properties().append({ PropertyId::ReasonString, reason });
         write(discon.serialize(m_connect.protocolVersion(), m_broker_max_packet_size));
     }
+
     setState(State::NetworkDisconnecting);
     cancelSubscribeMessages();
     QCoreApplication::postEvent(m_socketController, new Network::Event::CloseConnection(m_client.id()), Qt::HighEventPriority);

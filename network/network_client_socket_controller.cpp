@@ -60,10 +60,18 @@ void ClientSocketController::socketStateChanged(QAbstractSocket::SocketState sta
         }
         switch (state)
         {
-            case QAbstractSocket::UnconnectedState: { log_trace_6 << it.value().first << "state changed to \"UnconnectedState\"" << end_log; break; }
+            case QAbstractSocket::UnconnectedState: {
+                log_trace_6 << it.value().first << "state changed to \"UnconnectedState\"" << end_log;
+                socketDisconnected();
+                break;
+            }
             case QAbstractSocket::HostLookupState:  { log_trace_6 << it.value().first << "state changed to \"HostLookupState\""  << end_log; break; }
             case QAbstractSocket::ConnectingState:  { log_trace_6 << it.value().first << "state changed to \"ConnectingState\""  << end_log; break; }
-            case QAbstractSocket::ConnectedState:   { log_trace_6 << it.value().first << "state changed to \"ConnectedState\""   << end_log; break; }
+            case QAbstractSocket::ConnectedState:   {
+                log_trace_6 << it.value().first << "state changed to \"ConnectedState\""   << end_log;
+                socketConnected();
+                break;
+            }
             case QAbstractSocket::BoundState:       { log_trace_6 << it.value().first << "state changed to \"BoundState\""       << end_log; break; }
             case QAbstractSocket::ListeningState:   { log_trace_6 << it.value().first << "state changed to \"ListeningState\""   << end_log; break; }
             case QAbstractSocket::ClosingState:     { log_trace_6 << it.value().first << "state changed to \"ClosingState\""     << end_log; break; }
@@ -153,10 +161,18 @@ void ClientSocketController::websocketStateChanged(QAbstractSocket::SocketState 
     }
     switch (state)
     {
-        case QAbstractSocket::UnconnectedState: { log_trace_6 << it.value().first << "state changed to \"UnconnectedState\", reason:" << socket->closeReason() << end_log; break; }
+        case QAbstractSocket::UnconnectedState: {
+            log_trace_6 << it.value().first << "state changed to \"UnconnectedState\", reason:" << socket->closeReason() << end_log;
+            websocketDisconnected();
+            break;
+        }
         case QAbstractSocket::HostLookupState:  { log_trace_6 << it.value().first << "state changed to \"HostLookupState\""  << end_log; break; }
         case QAbstractSocket::ConnectingState:  { log_trace_6 << it.value().first << "state changed to \"ConnectingState\""  << end_log; break; }
-        case QAbstractSocket::ConnectedState:   { log_trace_6 << it.value().first << "state changed to \"ConnectedState\""   << end_log; break; }
+        case QAbstractSocket::ConnectedState:   {
+            log_trace_6 << it.value().first << "state changed to \"ConnectedState\""   << end_log;
+            websocketConnected();
+            break;
+        }
         case QAbstractSocket::BoundState:       { log_trace_6 << it.value().first << "state changed to \"BoundState\""       << end_log; break; }
         case QAbstractSocket::ListeningState:   { log_trace_6 << it.value().first << "state changed to \"ListeningState\""   << end_log; break; }
         case QAbstractSocket::ClosingState:     { log_trace_6 << it.value().first << "state changed to \"ClosingState\", reason:"     << socket->closeReason() << end_log; break; }
@@ -279,16 +295,12 @@ QObject * ClientSocketController::createSocket(const Client & connection)
         case ConnectionType::WS:
         {
             QWebSocket * socket = createWebSocket(connection);
-            connect(socket, &QWebSocket::connected, this, &ClientSocketController::websocketConnected);
-            connect(socket, &QWebSocket::disconnected, this, &ClientSocketController::websocketDisconnected);
             connect(socket, &QWebSocket::stateChanged, this, &ClientSocketController::websocketStateChanged);
             return socket;
         }
         case ConnectionType::TCP:
         {
             QTcpSocket * socket = createTcpSocket(connection);
-            connect(socket, &QTcpSocket::connected, this, &ClientSocketController::socketConnected);
-            connect(socket, &QTcpSocket::disconnected, this, &ClientSocketController::socketDisconnected);
             connect(socket, &QTcpSocket::stateChanged, this, &ClientSocketController::socketStateChanged);
             return socket;
         }
