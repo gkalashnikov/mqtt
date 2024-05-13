@@ -185,6 +185,9 @@ bool ControlPacket::unserializeProperties(const quint8 * buf, qint64 * remaining
     if (*remainingLength < 0)
         return false;
 
+    if (*remainingLength == 0)
+        return true;
+
     buf += len;
     *bytesCount += len;
     *bytesCount += props_len;

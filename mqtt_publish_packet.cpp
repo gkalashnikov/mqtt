@@ -371,8 +371,10 @@ bool PublishAnswerPacket::unserialize(const QByteArray & data, Version protocolV
         {
             m_header.packetId = Decoder::decodeTwoByteInteger(buf, &remaining_length, &len);   buf += len;
             if (Version::Ver_5_0 == protocolVersion) {
-                m_header.reasonCodeV5 = static_cast<ReasonCodeV5>(buf[0]);
-                ++buf; --remaining_length;
+                if (remaining_length > 0) {
+                    m_header.reasonCodeV5 = static_cast<ReasonCodeV5>(buf[0]);
+                    ++buf; --remaining_length;
+                }
                 bool ok = unserializeProperties(buf, &remaining_length, &len, m_header.props); buf += len;
                 if ( ok) { ok = isPropertiesValid(m_header.props); }
                 if (!ok) {
