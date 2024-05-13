@@ -128,8 +128,8 @@ void Bridge::connectToHosts()
             if (m_remote_connection.state() > Connection::State::NetworkConnected)
                 m_remote_connection.closeConnection(ReasonCodeV5::Success);
 
-            Properties conn_props { { PropertyId::MaximumPacketSize, m_local_connection.brokerMaximumPacketSize() }
-                                   ,{ PropertyId::TopicAliasMaximum, m_local_connection.brokerTopicAliasMaximum() }
+            Properties conn_props {
+                                    { PropertyId::TopicAliasMaximum, m_local_connection.brokerTopicAliasMaximum() }
                                    ,{ PropertyId::ReceiveMaximum   , m_local_connection.brokerReceiveMaximum()    }
                                   };
 
