@@ -174,13 +174,18 @@ void Bridge::remoteSubscribe(const QString & topic, QoS maxQoS, bool noLocal, bo
 
 bool Bridge::handleLocalControlPacket(PacketType type, const QByteArray & data)
 {
-    if (m_local_connection.protocolVersion() == m_remote_connection.protocolVersion())
-        m_remote_queue.enqueue(data);
-    else
-        m_remote_queue.enqueue(convertPacket(type, data, m_local_connection.protocolVersion(), m_remote_connection.protocolVersion()));
+    if (m_remote_connection.state() > Connection::State::BrokerDisconnetced)
+    {
+        if (m_local_connection.protocolVersion() == m_remote_connection.protocolVersion())
+            m_remote_queue.enqueue(data);
+        else
+            m_remote_queue.enqueue(convertPacket(type, data, m_local_connection.protocolVersion(), m_remote_connection.protocolVersion()));
 
-    sendRemoteMessageQueue();
-    return (m_remote_connection.state() > Connection::State::BrokerDisconnetced);
+        sendRemoteMessageQueue();
+        return true;
+    }
+
+    return false;
 }
 
 bool Bridge::handleRemoteControlPacket(PacketType type, const QByteArray & data)
