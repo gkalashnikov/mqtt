@@ -2,7 +2,7 @@
 #define MQTT_BROKER_H
 
 #include "mqtt_control_packet.h"
-#include "mqtt_session.h"
+#include "mqtt_sessions_container.h"
 #include "mqtt_chunk_data_controller.h"
 #include "mqtt_subscriptions_shared.h"
 #include "mqtt_store_publish_container.h"
@@ -17,8 +17,6 @@ namespace Mqtt
     class PasswordFile;
     class PublishPacket;
 
-    typedef QHash<QString, SessionPtr>  SessionsStore;
-    typedef QMap<quintptr, SessionWPtr> SessionsStoreByConn;
     typedef std::vector<quint32> SubscriptionIdentifiersArray;
 
     class Broker: public QObject
@@ -39,8 +37,8 @@ namespace Mqtt
 
     private slots:
         void initialize();
-        void sessionExpired();
         void publishStatistic();
+        void sessionExpired(Session * session);
 
     protected:
         bool event(QEvent * event) override;
@@ -89,11 +87,8 @@ namespace Mqtt
         PublishPacket makeSystemInfoPacket(const QString & topic, const QByteArray & payload);
         void publishSystemPacket(const QString & topic, const QByteArray & payload);
 
-        SessionPtr createSession();
-        void sessionDeleter(Session * session);
-        SessionPtr findSession(quintptr connectionId) const;
+        void sessionBeforeDelete(Session * session);
 
-        void loadSessions();
         void storeSharedSubscriptions();
         void loadSharedSubscriptions();
 
@@ -133,12 +128,9 @@ namespace Mqtt
         Statistic                * statistic;
         int                        subcount;
         Store::IFactory          * storerFactory;
-        QList<SessionPtr>          sessionsNew;
-        SessionsStore              sessions;
-        SessionsStoreByConn        sessionsByConn;
+        SessionsContainer        * sessions;
         SharedSubscriptions        sharedSubscriptions;
         Store::PublishContainer    retainPackets;
-        Store::IStorer           * sessionsStorer;
         Store::IStorer           * sharedSubscriptionsStorer;
         QList<Network::ServerWPtr> listeners;
         PasswordFile             * passFile;

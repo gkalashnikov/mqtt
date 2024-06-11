@@ -45,12 +45,26 @@ Broker::Broker(Store::IFactory * storerFactory, QObject * parent)
     ,statistic(new Statistic(this))
     ,subcount(0)
     ,storerFactory(storerFactory)
+    ,sessions(new SessionsContainer(storerFactory, this))
     ,retainPackets(storerFactory->createStorer(QStringLiteral("retained")))
-    ,sessionsStorer(storerFactory->createStorer(QStringLiteral("sessions")))
     ,sharedSubscriptionsStorer(storerFactory->createStorer(QStringLiteral("sharedSubscriptions")))
     ,passFile(Q_NULLPTR)
 {
     QTimer::singleShot(0, Qt::PreciseTimer, this, &Broker::initialize);
+}
+
+Broker::~Broker()
+{
+    delete sessions;
+    sessions = Q_NULLPTR;
+
+    retainPackets.syncAll();
+
+    delete sharedSubscriptionsStorer;
+    sharedSubscriptionsStorer = Q_NULLPTR;
+
+    delete passFile;
+    passFile = Q_NULLPTR;
 }
 
 quint32 Broker::maxFlowPerSecond(QoS qos) const
@@ -82,40 +96,38 @@ void Broker::setBanDuration(quint32 seconds, bool accumulative)
     banAccumulative = accumulative;
 }
 
-Broker::~Broker()
-{
-    sessionsNew.clear();
-    sessionsByConn.clear();
-    sessions.clear();
-
-    retainPackets.syncAll();
-
-    delete sessionsStorer;
-    sessionsStorer = Q_NULLPTR;
-
-    delete sharedSubscriptionsStorer;
-    sharedSubscriptionsStorer = Q_NULLPTR;
-
-    delete passFile;
-    passFile = Q_NULLPTR;
-}
-
 void Broker::initialize()
 {
+    connect(sessions, &SessionsContainer::sessionExpired, this, &Broker::sessionExpired);
+    connect(sessions, &SessionsContainer::sessionBeforeDelete, this, &Broker::sessionBeforeDelete);
+
     startPublishStatisticTimer();
-    loadSessions();
+
+    sessions->loadAll();
+
+    for (auto session: *sessions)
+        statistic->increaseSubscriptionCount(qint32(session->subscriptions().count()));
+
     loadSharedSubscriptions();
 }
 
-void Broker::sessionExpired()
+void Broker::sessionExpired(Session * session)
 {
     statistic->increaseExpiredClients();
-    Session * session = qobject_cast<Session*>(sender());
-    if (session != Q_NULLPTR) {
-        // remove later
-        QTimer::singleShot(0, Qt::TimerType::CoarseTimer, std::bind(&SessionsStore::remove, &sessions, (session->clientId())));
-        QTimer::singleShot(0, Qt::TimerType::CoarseTimer, std::bind(&Broker::updateClientsStatistic, this));
-    }
+    QTimer::singleShot(0, Qt::TimerType::CoarseTimer, std::bind(&Broker::updateClientsStatistic, this));
+}
+
+void Broker::sessionBeforeDelete(Session * session)
+{
+    statistic->decreaseSubscriptionCount(qint32(session->subscriptions().count()));
+    removeSharedSubscriptions(session);
+}
+
+void Broker::startPublishStatisticTimer()
+{
+    QTimer * timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, &Broker::publishStatistic);
+    timer->start(5000);
 }
 
 void Broker::publishStatistic()
@@ -186,51 +198,7 @@ bool Broker::setPasswordFile(const QString & filePath)
 
 PasswordFile * Broker::passwordFile()
 {
-    return dynamic_cast<PasswordFile*>(passFile);
-}
-
-SessionPtr Broker::createSession()
-{
-    Session * s = new Mqtt::Session(this);
-    SessionPtr session = SessionPtr(s, std::bind(&Broker::sessionDeleter, this, s));
-    connect(s, &Session::expired, this, &Broker::sessionExpired);
-    return session;
-}
-
-void Broker::sessionDeleter(Session * session)
-{
-    session->beforeDelete();
-    if (!session->clientId().isEmpty()) {
-        if (session->hasBeenExpired() || session->isClean())
-            sessionsStorer->remove(session->clientId());
-        else
-            sessionsStorer->store(session->clientId(), session->serialize());
-    }
-    statistic->decreaseSubscriptionCount(qint32(session->subscriptions().count()));
-    removeSharedSubscriptions(session);
-    delete session;
-}
-
-void Broker::startPublishStatisticTimer()
-{
-    QTimer * timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, &Broker::publishStatistic);
-    timer->start(5000);
-}
-
-void Broker::loadSessions()
-{
-    sessionsStorer->beginReadKeys();
-    while (sessionsStorer->nextKeyAvailable()) {
-        SessionPtr session = createSession();
-        session->unserialize(sessionsStorer->load(sessionsStorer->nextKey()));
-        if (session->clientId().isEmpty() || session->isBanned())
-            continue;
-        sessions.insert(session->clientId(), session);
-        session->setPendingPacketsStorer(storerFactory->createStorer(QStringLiteral("pending/") + session->clientId()));
-        statistic->increaseSubscriptionCount(qint32(session->subscriptions().count()));
-    }
-    sessionsStorer->endReadKeys();
+    return passFile;
 }
 
 void Broker::storeSharedSubscriptions()
@@ -290,9 +258,9 @@ void Broker::loadSharedSubscriptions()
                 QString session_client_id = Decoder::decodeUTF8(buf, &rl, &bc);         buf += bc;
                 options.b = *buf;                                                     ++buf; --rl;
                 quint32 identifier = Decoder::decodeFourByteInteger(buf, &rl, &bc);     buf += bc;
-                auto it = sessions.find(session_client_id);
-                if (it != sessions.end())
-                    dynamic_cast<SharedSubscriptionData*>(node->data())->add(consumer_name, *it, options.o, identifier);
+                SessionPtr session = sessions->find(session_client_id);
+                if (!session.isNull())
+                    dynamic_cast<SharedSubscriptionData*>(node->data())->add(consumer_name, session, options.o, identifier);
                 --sessions_count;
             }
             --consumers_count;
@@ -450,13 +418,8 @@ const Broker::SharedSubscriptionSessionsArray & Broker::selectSharedSubscription
             sharedSubscriptions.remove(node);
     }
 
-    for (auto & session_list: matched_consumer_sessions)
-    {
-        if (session_list.size() > 1) {
-            matched_sessions.push_back(selectSharedSubscriptionSession(session_list));
-        } else {
-            matched_sessions.push_back(session_list[0]);
-        }
+    for (auto & session_list: matched_consumer_sessions) {
+        matched_sessions.push_back((session_list.size() > 1) ? selectSharedSubscriptionSession(session_list) : session_list[0]);
     }
 
     return matched_sessions;
@@ -503,8 +466,7 @@ void Broker::publish(const QString & fromClientId, const Topic & topic, const Pu
     {
         auto & array = selectSharedSubscriptionSessions(sharedSubscriptions.nodes());
         for (auto & pair: array) {
-            SessionPtr s_ptr = pair.session.toStrongRef();
-            if (!s_ptr.isNull()) {
+            if (SessionPtr s_ptr = pair.session.toStrongRef()) {
                 subscription_identifiers.clear();
                 if (pair.data.identifier != 0)
                     subscription_identifiers.push_back(pair.data.identifier);
@@ -513,7 +475,7 @@ void Broker::publish(const QString & fromClientId, const Topic & topic, const Pu
         }
     }
 
-    for (auto s_ptr : sessions)
+    for (auto s_ptr : *sessions)
     {
         if (s_ptr.isNull())
             continue;
@@ -538,12 +500,14 @@ void Broker::publishWill(const ConnectPacket & connectPacket, bool immediately)
     packet.setRetain(connectPacket.willRetain());
     packet.properties() = connectPacket.willProperties();
 
-    if (immediately) {
+    if (immediately)
+    {
         const Topic topic(packet.topicName());
         if (topic.isValidForPublish())
             publish(connectPacket.clientId(), topic, packet);
     }
-    else {
+    else
+    {
         QVariant delay = ControlPacket::property(connectPacket.willProperties(), PropertyId::WillDelayInterval);
         auto will_func = std::bind(&Broker::executePublishWill, this, connectPacket.clientId(), std::move(packet));
         QTimer::singleShot(delay.toInt() * 1000, will_func);
@@ -578,6 +542,7 @@ void Broker::publishRetainedPackets(SessionPtr & session, const SubscriptionNode
             {
                 continue;
             }
+
             if (node->matchesWith(topic))
             {
                 subscription_identifiers.clear();
@@ -591,9 +556,7 @@ void Broker::publishRetainedPackets(SessionPtr & session, const SubscriptionNode
             }
         }
 
-        unit.unload();
-
-        ++it;
+        unit.unload(); ++it;
     }
 }
 
@@ -615,12 +578,11 @@ void Broker::processPublishPacket(SessionPtr & session, const PublishPacket & so
     if (packet.QoS() > subscribeOptions.maximumQoS())
         packet.setQoS(subscribeOptions.maximumQoS());
 
-    bool connected = session->isConnected();
-
-    if ((connected || !session->isClean()) && packet.QoS() != QoS::Value_0)
+    if ((session->isConnected() || !session->isClean())
+            && packet.QoS() != QoS::Value_0)
         session->addPendingPacket(packet);
 
-    if (!connected) {
+    if (!session->isConnected()) {
         if (!session->isClean()) {
             if (QoS::Value_0 == packet.QoS() && isQoS0OfflineEnabled()
                     && !packet.topicName().startsWith(QStringLiteral(u"$SYS/")))
@@ -632,11 +594,8 @@ void Broker::processPublishPacket(SessionPtr & session, const PublishPacket & so
     if (QoS::Value_0 == packet.QoS())
     {
         QByteArray data = packet.serialize(session->protocolVersion());
-
         bool can_send = (data.size() <= session->maxPacketSize());
-
-        if (!can_send)
-        {
+        if (!can_send) {
             if (session->processClientAlias(packet)) {
                 packet.setTopicName(QString());
                 data = packet.serialize(session->protocolVersion());
@@ -648,7 +607,6 @@ void Broker::processPublishPacket(SessionPtr & session, const PublishPacket & so
                 return;
             }
         }
-
         session->connection().write(data);
         statistic->increaseSentPublishMessages();
     }
@@ -699,9 +657,7 @@ void Broker::publishPendingPackets(SessionPtr & session)
         }
 
         QByteArray data = unit->packet().serialize(session->protocolVersion());
-
         bool can_send = (data.size() <= session->maxPacketSize());
-
         if (!can_send)
         {
             PublishPacket packet = unit->packet();
@@ -717,10 +673,8 @@ void Broker::publishPendingPackets(SessionPtr & session)
                 continue;
             }
         }
-
         session->connection().write(data);
         statistic->increaseSentPublishMessages();
-
         if (QoS::Value_0 == unit->packet().QoS())
             session->packetDelivered(unit->packet().packetId(), ReasonCodeV5::Success, true);
     }
@@ -728,138 +682,90 @@ void Broker::publishPendingPackets(SessionPtr & session)
 
 void Broker::updateClientsStatistic()
 {
-    statistic->setConnectedClients(sessionsByConn.count());
-    statistic->setDisconnectedClients(sessions.count() - sessionsByConn.count());
-    statistic->setTotalClients(sessions.count());
+    statistic->setConnectedClients(sessions->connectedCount());
+    statistic->setDisconnectedClients(sessions->disconnectedCount());
+    statistic->setTotalClients(sessions->totalCount());
 }
 
 void Broker::executePublishWill(const QString & clientId, const PublishPacket & packet)
 {
-    bool client_connected = false;
-
-    auto it = sessions.find(clientId);
-    if (it != sessions.end())
-        client_connected = (*it)->isConnected();
-
-    if (client_connected) {
-        log_note << "client" << clientId << "will message has been discarded, client has been connected again!" << end_log;
-        return;
+    if (SessionPtr session = sessions->find(clientId)) {
+        if (session->isConnected()) {
+            log_note << "client" << clientId << "will message has been discarded, client has been connected again!" << end_log;
+            return;
+        }
     }
-
     Topic topic(packet.topicName());
-
     if (topic.isValidForPublish()) {
         publish(clientId, topic, packet);
         log_note << "client" << clientId << "will message has been published" << end_log;
     }
 }
 
-SessionPtr Broker::findSession(quintptr connectionId) const
-{
-    auto it = sessionsByConn.find(connectionId);
-    if (it != sessionsByConn.end())
-        return *it;
-    return SessionPtr(Q_NULLPTR);
-}
-
 void Broker::handleIncomingConnection(Network::ServerClient connection)
 {
-    SessionPtr session = createSession();
-    session->setConnection(connection);
-    sessionsNew.append(session);
-    sessionsByConn[connection.id()] = session.toWeakRef();
+    SessionPtr session = sessions->createForIncomingConnection(connection);
+    sessions->insert(connection.id(), SessionsContainer::Placing::AmongNew,      session);
+    sessions->insert(connection.id(), SessionsContainer::Placing::AmongConneted, session);
     updateClientsStatistic();
 }
 
 void Broker::handleCloseConnection(quintptr connectionId)
 {
-    SessionPtr new_session;
-    SessionPtr session;
-
-    auto comparator = [&connectionId] (const SessionPtr & session) -> bool { return (session->connection().id() == connectionId); };
+    if (SessionPtr session = sessions->take(connectionId, SessionsContainer::Placing::AmongNew))
     {
-        auto it = std::find_if(sessionsNew.begin(), sessionsNew.end(), comparator);
-        if (it != sessionsNew.end()) {
-            new_session = *it;
-            sessionsNew.erase(it);
-        }
-    }
-
-    {
-        auto it = sessionsByConn.find(connectionId);
-        if (it != sessionsByConn.end())
-        {
-            session = *it;
-            sessionsByConn.erase(it);
-            if (session != new_session) {
-                if (!session->isNormalDisconnected() && session->connectPacket().willEnabled())
-                    publishWill(session->connectPacket(), false);
-                sessionsStorer->store(session->clientId(), session->serialize());
-            }
-        }
-        else
-        {
-            auto it = std::find_if(sessions.begin(), sessions.end(), comparator);
-            if (it != sessions.end()) {
-                session = *it;
-                sessions.erase(it);
-            }
-        }
-    }
-
-    updateClientsStatistic();
-
-    if (!new_session.isNull()) {
-        log_note << new_session->connection() << "unknown client DISCONNECTED" << end_log;
-        new_session->clearConnection();
-    }
-    else if (!session.isNull()) {
-        log_note << session->connection() << "mqtt client" << session->clientId() << "DISCONNECTED" << end_log;
+        sessions->take(connectionId, SessionsContainer::Placing::AmongConneted);
+        log_note << session->connection() << "unknown client DISCONNECTED" << end_log;
         session->clearConnection();
     }
+    else if (SessionPtr session = sessions->take(connectionId, SessionsContainer::Placing::AmongConneted))
+    {
+        if (!session->isNormalDisconnected() && session->connectPacket().willEnabled())
+            publishWill(session->connectPacket(), false);
+        sessions->store(session);
+        log_note << session->connection() << "mqtt client" << session->clientId() << "DISCONNECTED" << end_log;
+        session->clearConnection();
+        if (session->isClean())
+            sessions->remove(session->clientId());
+    }
+    updateClientsStatistic();
 }
 
 void Broker::handleConnectionUpgraded(quintptr connectionId)
 {
-    sessionsByConn.remove(connectionId);
-    auto comparator = [&connectionId] (const SessionPtr & session) -> bool { return (session->connection().id() == connectionId); };
-    {
-        auto it = std::find_if(sessionsNew.begin(), sessionsNew.end(), comparator);
-        if (it != sessionsNew.end())
-            sessionsNew.erase(it);
-    }
+    sessions->take(connectionId, SessionsContainer::Placing::AmongNew);
+    sessions->take(connectionId, SessionsContainer::Placing::AmongConneted);
+    updateClientsStatistic();
 }
 
 void Broker::handleNetworkData(quintptr connectionId, const QByteArray & data)
 {
-    SessionPtr session = findSession(connectionId);
-
-    if (session.isNull()) {
-        statistic->increaseDroppedMessages();
+    if (SessionPtr session = sessions->find(connectionId, SessionsContainer::Placing::AmongConneted))
+    {
+        session->dataController().append(data);
+        while (session->dataController().packetAvailable()) {
+            QByteArray packet = session->dataController().takePacket();
+            if (!session->isBanned())
+                handleControlPacket(session, packet);
+        }
+        session->restartElapsed();
         return;
     }
-
-    session->dataController().append(data);
-    while (session->dataController().packetAvailable()) {
-        session->restartElapsed();
-        handleControlPacket(session, session->dataController().takePacket());
-    }
+    statistic->increaseDroppedMessages();
 }
 
 void Broker::handleControlPacket(SessionPtr & session, const QByteArray & data)
 {
-    if (session->isBanned())
-        return;
-
     Mqtt::PacketType type = Mqtt::ControlPacket::extractType(data);
 
     if (session->expectsConnectPacket() && Mqtt::PacketType::CONNECT != type) {
         log_warning << session->connection() << "received packet's is not expected CONNECT, type was" << type << printByteArray(data) << end_log;
         session->connection().close();
-        if (Mqtt::PacketType::PUBLISH == type)
+        if (Mqtt::PacketType::PUBLISH == type) {
             statistic->increaseDroppedPublishMessages();
-        else
+        } else {
             statistic->increaseDroppedMessages();
+        }
         return;
     }
 
@@ -896,25 +802,15 @@ void Broker::handleControlPacket(SessionPtr & session, const QByteArray & data)
 
 void Broker::handleConnectPacket(SessionPtr & session, const QByteArray & data)
 {
-    auto comparator = [&session] (const SessionPtr & other) -> bool { return (other->connection() == session->connection()); };
-    auto sn_it = std::find_if(sessionsNew.begin(), sessionsNew.end(), comparator);
-    if (sn_it == sessionsNew.end()) {
-        session->connection().close();
-        statistic->increaseDroppedMessages();
-        return;
-    }
+    sessions->take(session->connection().id(), SessionsContainer::Placing::AmongNew);
 
     Mqtt::ConnectPacketPtr packet = Mqtt::ConnectPacketPtr(new ConnectPacket());
-
-    ConnectPacket * conn_packet = packet.data();
-    conn_packet->unserialize(data);
-
-    Version proto_version = conn_packet->protocolVersion();
+    packet->unserialize(data);
 
     if (packet->unserializeReasonCode() != ReasonCodeV5::Success)
     {
         log_warning << session->connection() << "packet" << packet->type() << "not unserialized:" << packet->unserializeReasonString() << printByteArray(data) << end_log;
-        if (Version::Ver_5_0 == proto_version)
+        if (Version::Ver_5_0 == packet->protocolVersion())
             sendConnackError(session, quint8(packet->unserializeReasonCode()), packet->unserializeReasonString());
         session->connection().close();
         statistic->increaseDroppedMessages();
@@ -923,80 +819,68 @@ void Broker::handleConnectPacket(SessionPtr & session, const QByteArray & data)
 
     log_trace << session->connection() << "packet" << packet->type() << "unserialized succesfully" << end_log;
 
-    if (conn_packet->clientId().isEmpty() || !sessionsStorer->canStore(conn_packet->clientId()))
+    if (packet->clientId().isEmpty() || !sessions->canStore(packet->clientId()))
     {
-        if (!conn_packet->cleanSession()) {
-            sendConnackError(session, Version::Ver_5_0 == proto_version ? quint8(ReasonCodeV5::ClientIdentifierNotValid) : quint8(ReturnCodeV3::IdentifierRejected));
+        if (!packet->cleanSession()) {
+            sendConnackError(session, Version::Ver_5_0 == packet->protocolVersion()
+                             ? quint8(ReasonCodeV5::ClientIdentifierNotValid)
+                             : quint8(ReturnCodeV3::IdentifierRejected));
             session->connection().close();
             statistic->increaseDroppedMessages();
             return;
         }
-        conn_packet->setClientId(Broker::generateClientId(proto_version));
+        packet->setClientId(Broker::generateClientId(packet->protocolVersion()));
         session->setClientIdProvidedByServer(true);
     }
 
-    bool session_is_present = false;
-    auto s_it = sessions.find(conn_packet->clientId());
+    session->setPresent(false);
 
-    if (s_it == sessions.end()) {
-        QByteArray data = sessionsStorer->load(conn_packet->clientId());
-        if (!data.isEmpty()) {
-            SessionPtr s = createSession();
-            s->unserialize(data);
-            s_it = sessions.insert(conn_packet->clientId(), s);
-            statistic->increaseSubscriptionCount(qint32(s->subscriptions().count()));
-        }
-    }
-
-    if (s_it != sessions.end())
+    if (SessionPtr stored_session = sessions->find(packet->clientId()))
     {
-        SessionPtr previous_session = *s_it;
-
-        if (previous_session->isBanned())
+        if (stored_session->isBanned())
         {
-            sessionsNew.erase(sn_it);
             sendConnackError(session, (Version::Ver_5_0 == session->protocolVersion())
                              ? static_cast<quint8>(ReasonCodeV5::Banned)
                              : static_cast<quint8>(ReturnCodeV3::ServerUnavailable)
                              , QStringLiteral("you are banned!"));
+
             session->connection().close();
-            log_note << session->connection() << packet->clientId() << "BANNED for" << previous_session->banTimeout() << "seconds" << end_log;
+            log_note << session->connection() << packet->clientId() << "BANNED for" << stored_session->banTimeout() << "seconds" << end_log;
             return;
         }
 
-        if (previous_session->isConnected())
+        if (stored_session->isConnected())
         {
             session->setConnectPacket(packet);
-            if (previous_session->connection() == session->connection()) {
+            if (stored_session->connection() == session->connection())
+            {
                 processTwiceConnection(session);
                 statistic->increaseDroppedMessages();
                 return;
-            } else {
-                processOtherConnectionWithSameClientId(session, previous_session);
-                sessionsByConn.remove(previous_session->connection().id());
-                sessions.erase(s_it);
+            }
+            else
+            {
+                processOtherConnectionWithSameClientId(session, stored_session);
             }
         }
         else
         {
-            if (!conn_packet->cleanSession()) {
-                previous_session->setConnection(session->connection());
-                sessionsByConn.remove(session->connection().id());
-                session = previous_session;
-                session_is_present = true;
-            } else {
-                session->syncBanDuration(*(previous_session.data()));
+            if (!packet->cleanSession())
+            {
+                stored_session->setConnection(session->connection());
+                sessions->take(session->connection().id(), SessionsContainer::Placing::AmongConneted);
+                session = stored_session;
+                session->setPresent(true);
+            }
+            else
+            {
+                session->syncBanDuration(*(stored_session.data()));
             }
         }
     }
 
     session->setConnectPacket(packet);
     session->setNormalDisconnectWas(false);
-    session->setPresent(session_is_present);
-
-    sessions.insert(session->clientId(), session);
-    sessionsByConn.insert(session->connection().id(), session);
-    sessionsNew.erase(sn_it);
 
     // NOTE: perform authentication and authorization checks (If any of these checks fail, it MUST close the Network Connection)
     // Before closing the Network Connection, it MAY send an appropriate CONNACK response with a Reason Code of 0x80 or greater.
@@ -1011,8 +895,6 @@ void Broker::handleConnectPacket(SessionPtr & session, const QByteArray & data)
     else if (passFile == Q_NULLPTR || passFile->isUserAccepted(packet->username(), packet->password()))
     {
         loadSharedSubscriptions();
-        if (!session->hasPendingPacketsStorer())
-            session->setPendingPacketsStorer(storerFactory->createStorer(QStringLiteral("pending/") + session->clientId()));
         finalizeSuccessfulConnect(session);
     }
     else
@@ -1021,6 +903,7 @@ void Broker::handleConnectPacket(SessionPtr & session, const QByteArray & data)
                          ? static_cast<quint8>(ReasonCodeV5::BadUserNameOrPassword)
                          : static_cast<quint8>(ReturnCodeV3::BadUserNameOrPassword)
                          , QStringLiteral("username and password are not defined"));
+
         session->connection().close();
     }
 }
@@ -1047,11 +930,10 @@ void Broker::sendConnackSuccess(SessionPtr & session)
 
 void Broker::finalizeSuccessfulConnect(SessionPtr & session)
 {
+    sessions->insert(session->clientId(), session);
     sendConnackSuccess(session);
     updateClientsStatistic();
     publishPendingPackets(session);
-    sessionsStorer->store(session->clientId(), session->serialize());
-
     log_note << session->connection() << "mqtt client" << session->clientId() << "CONNECTED" << ", session is present:" << (session->isPresent() ? "yes" : "no") << end_log;
 }
 
@@ -1294,12 +1176,16 @@ void Broker::handlePubCompPacket(SessionPtr & session, const QByteArray & data)
 
 void Broker::handleDisconnectPacket(SessionPtr & session, const QByteArray & data)
 {
-    const Network::ServerClient & conn = session->connection();
     DisconnectPacket packet;
-    if (packet.unserialize(data, session->protocolVersion())) {
-        log_trace << conn << "packet" << packet.type() << "unserialized succesfully" << end_log;
+
+    if (packet.unserialize(data, session->protocolVersion()))
+    {
+        log_trace << session->connection() << "packet" << packet.type() << "unserialized succesfully" << end_log;
+
         QVariant v = ControlPacket::property(packet.properties(), PropertyId::SessionExpiryInterval);
-        if (v.isValid()) {
+
+        if (v.isValid())
+        {
             quint32 expiry_by_connect = v.toUInt();
             QVariant v2 = ControlPacket::property(session->connectPacket().properties(), PropertyId::SessionExpiryInterval);
             quint32 expiry_by_disconnect = v2.toUInt();
@@ -1309,16 +1195,22 @@ void Broker::handleDisconnectPacket(SessionPtr & session, const QByteArray & dat
                 session->setExpiryInterval(expiry_by_disconnect);
             }
         }
+
         session->setNormalDisconnectWas(packet.reasonCode() < ReasonCodeV5::UnspecifiedError);
-        if (ReasonCodeV5::DisconnectWithWillMessage == packet.reasonCode()) {
+
+        if (ReasonCodeV5::DisconnectWithWillMessage == packet.reasonCode())
+        {
             if (session->connectPacket().willEnabled())
                 publishWill(session->connectPacket(), true);
         }
-    } else {
+    }
+    else
+    {
         statistic->increaseDroppedMessages();
     }
-    conn.close();
-    handleCloseConnection(conn.id());
+
+    session->connection().close();
+    handleCloseConnection(session->connection().id());
 }
 
 void Broker::handleSubscribePacket(SessionPtr & session, const QByteArray & data)
@@ -1409,7 +1301,7 @@ void Broker::handleSubscribePacket(SessionPtr & session, const QByteArray & data
         publishSystemPackets(session, new_nodes);
     }
 
-    sessionsStorer->store(session->clientId(), session->serialize());
+    sessions->store(session);
 }
 
 void Broker::handleUnsubscribePacket(SessionPtr & session, const QByteArray & data)
@@ -1460,8 +1352,7 @@ void Broker::handleUnsubscribePacket(SessionPtr & session, const QByteArray & da
         }
         session->connection().write(unsuback.serialize(session->protocolVersion(), session->maxPacketSize()));
         statistic->increaseSentMessages();
-
-        sessionsStorer->store(session->clientId(), session->serialize());
+        sessions->store(session);
     }
     else {
         session->connection().close();
