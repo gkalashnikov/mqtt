@@ -7,7 +7,7 @@ namespace Mqtt
 {
     class PacketIdController
     {
-    public slots:
+    public:
         void removeId(quint16 id);
 
     public:

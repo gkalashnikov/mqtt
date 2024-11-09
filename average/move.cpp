@@ -13,10 +13,10 @@ QByteArray Average::Load::toJSON(const QByteArray & counterName) const
             if (i > 0) json.append(',');
             json.append('\"');
             if (m_values[i].second < 60) {
-                json.append(QByteArray::number(m_values[i].second));
+                json.append(QByteArray::number(static_cast<quint64>(m_values[i].second)));
                 json.append("sec\":");
             } else {
-                json.append(QByteArray::number(m_values[i].second / 60));
+                json.append(QByteArray::number(static_cast<quint64>(m_values[i].second / 60)));
                 json.append("min\":");
             }
             json.append(QByteArray::number(m_values[i].first));

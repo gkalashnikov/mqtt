@@ -1539,7 +1539,7 @@ QByteArray Broker::makeSubscriptionsInfoPayload() const
     payload.append("\"count\":");
     payload.append(QByteArray::number(statistic->subscriptionsCount));
     payload.append(",\"shared\":");
-    payload.append(QByteArray::number(sharedSubscriptions.count()));
+    payload.append(QByteArray::number(static_cast<quint64>(sharedSubscriptions.count())));
     payload.append('}');
     return payload;
 }

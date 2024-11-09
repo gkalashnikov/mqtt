@@ -26,6 +26,10 @@ namespace Mqtt
     class SubscriptionOptionsSubscriptionIdPair
     {
     public:
+        SubscriptionOptionsSubscriptionIdPair() = default;
+        SubscriptionOptionsSubscriptionIdPair(const SubscribeOptions & opts, quint32 id) : options(opts), identifier(id) { }
+
+    public:
         SubscribeOptions options = { QoS::Value_0, false, false, SubscribeOptions::RetainHandling::SendAtSubscribe };
         quint32 identifier = 0;
     };
