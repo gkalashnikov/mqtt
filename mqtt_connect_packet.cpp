@@ -425,6 +425,7 @@ bool ConnectPacket::isWillPropertiesValid(Properties & props)
                     return false;
                 break;
             }
+            default: break;
         }
     }
 

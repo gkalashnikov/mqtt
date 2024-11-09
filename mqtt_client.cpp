@@ -38,6 +38,8 @@ void Client::stateChanged(State state)
         {
             break;
         }
+
+        default: break;
     }
 }
 

@@ -275,6 +275,8 @@ void ClientSocketController::handleWriteData(quintptr connectionId, const QByteA
                 socket->sendBinaryMessage(data);
             return;
         }
+
+        default: break;
     }
 }
 
@@ -304,6 +306,7 @@ QObject * ClientSocketController::createSocket(const Client & connection)
             connect(socket, &QTcpSocket::stateChanged, this, &ClientSocketController::socketStateChanged);
             return socket;
         }
+        default: break;
     }
     return Q_NULLPTR;
 }
@@ -390,9 +393,11 @@ void ClientSocketController::openConnection(const Client & connection, QSharedPo
                     socket->connectToHost(connection.address(), connection.port());
                     break;
                 }
+                default: break;
             }
             return;
         }
+        default: break;
     }
 }
 

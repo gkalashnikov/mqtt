@@ -76,6 +76,7 @@ void Bridge::localStateChanged(Connection::State state)
                     m_step = Step::OpenConnectionDone;
                     break;
                 }
+                default: break;
             }
             break;
         }
@@ -86,6 +87,8 @@ void Bridge::localStateChanged(Connection::State state)
                 m_remote_connection.closeConnection(m_local_connection.disconnectReasonCode(), m_local_connection.disconnectReasonString());
             break;
         }
+
+        default: break;
     }
 }
 
@@ -109,6 +112,8 @@ void Bridge::remoteStateChanged(Connection::State state)
             m_local_connection.closeConnection(m_remote_connection.disconnectReasonCode(), m_remote_connection.disconnectReasonString());
             break;
         }
+
+        default: break;
     }
 }
 
@@ -247,6 +252,7 @@ QByteArray Bridge::convertPacket(PacketType type, const QByteArray & data, Versi
             p.unserialize(data, fromVersion);
             return p.serialize(toVersion, Constants::DefaultMaxPacketSize);
         }
+        default: break;
     }
 
     return data;

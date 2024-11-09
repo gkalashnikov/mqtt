@@ -307,6 +307,7 @@ QByteArray SubscribeAckPacket::serialize(Version protocolVersion, qint32 maxPack
                     packet.append(Encoder::encodeTwoByteInteger(m_header.packetId));
                     break;
                 }
+                default: break;
             }
             break;
         }

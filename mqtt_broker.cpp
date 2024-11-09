@@ -180,6 +180,7 @@ bool Broker::event(QEvent * event)
             }
             break;
         }
+        default: break;
     }
     return QObject::event(event);
 }
