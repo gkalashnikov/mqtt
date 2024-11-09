@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
 project(mqttBroker
-    VERSION 1.0.1.2
+    VERSION 1.0.1.3
     DESCRIPTION "mqtt broker"
     LANGUAGES CXX)
 
